@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "400372224136",
+    "project_id": "flutter-authentication-56ba3",
+    "storage_bucket": "flutter-authentication-56ba3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:400372224136:android:5b7923d145ec23c33d8f3d",
+        "android_client_info": {
+          "package_name": "com.example.voice_emotion_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAuEYerEUrpILJ8UsmMxms77VjijRXT29I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
