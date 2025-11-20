@@ -13,23 +13,32 @@ class VoiceChatbotPage extends StatefulWidget {
   State<VoiceChatbotPage> createState() => _VoiceChatbotPageState();
 }
 
-class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
+class _VoiceChatbotPageState extends State<VoiceChatbotPage>
+    with TickerProviderStateMixin {
   final TextEditingController _textController = TextEditingController();
   final JournalService _journalService = JournalService();
   final List<JournalEntry> _journalEntries = [];
+  
   bool _isListening = false;
   bool _isRecording = false;
   bool _isLoading = true;
+  
+  late AnimationController _recordingAnimationController;
 
   @override
   void initState() {
     super.initState();
+    _recordingAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    )..repeat();
     _loadJournalEntries();
   }
 
   @override
   void dispose() {
     _textController.dispose();
+    _recordingAnimationController.dispose();
     super.dispose();
   }
 
@@ -40,16 +49,18 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
 
     try {
       final entries = await _journalService.getJournalEntries(widget.user.uid);
-      setState(() {
-        _journalEntries.clear();
-        _journalEntries.addAll(entries);
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
       if (mounted) {
+        setState(() {
+          _journalEntries.clear();
+          _journalEntries.addAll(entries);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading journal entries: $e'),
@@ -65,13 +76,15 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
       _isListening = true;
       _isRecording = true;
     });
+    _recordingAnimationController.forward();
     
     // Simulate voice recognition
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && _isRecording) {
+        _stopListening();
         setState(() {
-          _isRecording = false;
-          _textController.text = 'Today was a good day. I went for a walk in the park and felt peaceful.';
+          _textController.text =
+              'Today was a good day. I went for a walk in the park and felt peaceful.';
         });
       }
     });
@@ -82,6 +95,8 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
       _isListening = false;
       _isRecording = false;
     });
+    _recordingAnimationController.stop();
+    _recordingAnimationController.reset();
   }
 
   Future<void> _saveJournalEntry() async {
@@ -91,6 +106,7 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
         const SnackBar(
           content: Text('Please enter some text before saving'),
           backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
         ),
       );
       return;
@@ -114,28 +130,56 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
       await _journalService.saveJournalEntry(entry);
 
       // Update local list
-      setState(() {
-        _journalEntries.insert(0, entry);
-        _textController.clear();
-        _isLoading = false;
-      });
-
       if (mounted) {
+        setState(() {
+          _journalEntries.insert(0, entry);
+          _textController.clear();
+          _isLoading = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Journal entry saved successfully'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
       if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error saving journal entry: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteJournalEntry(String entryId, int index) async {
+    try {
+      await _journalService.deleteJournalEntry(entryId);
+      if (mounted) {
+        setState(() {
+          _journalEntries.removeAt(index);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Journal entry deleted'),
+            backgroundColor: Colors.blue,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting entry: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -158,10 +202,13 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
         elevation: 0,
         backgroundColor: const Color(0xFF4CAF50),
         foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.mic),
-          onPressed: () {},
-        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadJournalEntries,
+            tooltip: 'Refresh entries',
+          ),
+        ],
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -187,41 +234,58 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
                       onTapDown: (_) => _startListening(),
                       onTapUp: (_) => _stopListening(),
                       onTapCancel: () => _stopListening(),
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: _isRecording
-                                ? [Colors.red, Colors.red.shade700]
-                                : [const Color(0xFF4CAF50), const Color(0xFF4CAF50).withOpacity(0.7)],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (_isRecording ? Colors.red : const Color(0xFF4CAF50))
-                                  .withOpacity(0.4),
-                              blurRadius: 20,
-                              spreadRadius: _isRecording ? 10 : 5,
+                      child: AnimatedBuilder(
+                        animation: _recordingAnimationController,
+                        builder: (context, child) {
+                          return Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: _isRecording
+                                    ? [Colors.red, Colors.red.shade700]
+                                    : [
+                                        const Color(0xFF4CAF50),
+                                        const Color(0xFF4CAF50).withOpacity(0.7),
+                                      ],
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (_isRecording
+                                          ? Colors.red
+                                          : const Color(0xFF4CAF50))
+                                      .withOpacity(
+                                          0.2 +
+                                          (_recordingAnimationController.value *
+                                              0.4)),
+                                  blurRadius:
+                                      20 +
+                                      (_recordingAnimationController.value * 10),
+                                  spreadRadius: _isRecording
+                                      ? 10 + (_recordingAnimationController.value * 5)
+                                      : 5,
+                                )
+                              ],
                             ),
-                          ],
-                        ),
-                        child: Icon(
-                          _isRecording ? Icons.stop : Icons.mic,
-                          size: 48,
-                          color: Colors.white,
-                        ),
+                            child: Icon(
+                              _isRecording ? Icons.stop : Icons.mic,
+                              size: 48,
+                              color: Colors.white,
+                            ),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       _isRecording
-                          ? 'Recording... Tap to stop'
+                          ? 'Recording... Release to stop'
                           : _isListening
-                              ? 'Processing...'
-                              : 'Hold to record your thoughts',
+                              ? 'Processing your voice...'
+                              : 'Hold button to record your thoughts',
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.grey[700],
@@ -234,26 +298,27 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: List.generate(3, (index) {
-                            return TweenAnimationBuilder<double>(
-                              tween: Tween(begin: 0.0, end: 1.0),
-                              duration: const Duration(milliseconds: 500),
-                              curve: Curves.easeInOut,
-                              builder: (context, value, child) {
-                                return Container(
-                                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                                  width: 8,
-                                  height: 40 * (0.5 + (value + index * 0.3) % 1.0 * 0.5),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                );
-                              },
-                              onEnd: () {
-                                if (mounted && _isRecording) {
-                                  setState(() {});
-                                }
-                              },
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: AnimatedBuilder(
+                                animation: _recordingAnimationController,
+                                builder: (context, child) {
+                                  final animValue =
+                                      (_recordingAnimationController.value +
+                                              (index * 0.33)) %
+                                          1.0;
+                                  return Container(
+                                    width: 8,
+                                    height: 20 +
+                                        (animValue * 20),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  );
+                                },
+                              ),
                             );
                           }),
                         ),
@@ -261,7 +326,7 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
                   ],
                 ),
               ),
-              const Divider(),
+              const Divider(height: 1),
               // Text input section
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -278,14 +343,30 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _textController,
-                      maxLines: 5,
+                      maxLines: 4,
+                      maxLength: 500,
                       decoration: InputDecoration(
-                        hintText: 'Write about your day, thoughts, or feelings...',
+                        hintText:
+                            'Write about your day, thoughts, or feelings...',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF4CAF50),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF4CAF50),
+                            width: 2,
+                          ),
                         ),
                         filled: true,
                         fillColor: Colors.grey[50],
+                        counterStyle: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -300,6 +381,7 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                          elevation: 2,
                         ),
                         child: const Text(
                           'Save Entry',
@@ -313,7 +395,7 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
                   ],
                 ),
               ),
-              const Divider(),
+              const Divider(height: 1),
               // Journal entries list
               Expanded(
                 child: _isLoading
@@ -334,6 +416,7 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
                                   style: TextStyle(
                                     fontSize: 18,
                                     color: Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -352,7 +435,10 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
                             padding: const EdgeInsets.all(16),
                             itemCount: _journalEntries.length,
                             itemBuilder: (context, index) {
-                              return _buildJournalEntry(_journalEntries[index]);
+                              return _buildJournalEntry(
+                                _journalEntries[index],
+                                index,
+                              );
                             },
                           ),
               ),
@@ -363,7 +449,7 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
     );
   }
 
-  Widget _buildJournalEntry(JournalEntry entry) {
+  Widget _buildJournalEntry(JournalEntry entry, int index) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
@@ -382,20 +468,51 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(
-                  entry.type == 'voice' ? Icons.mic : Icons.edit,
-                  size: 20,
-                  color: const Color(0xFF4CAF50),
+                Row(
+                  children: [
+                    Icon(
+                      entry.type == 'voice' ? Icons.mic : Icons.edit,
+                      size: 20,
+                      color: const Color(0xFF4CAF50),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _formatDateTime(entry.timestamp),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  _formatDateTime(entry.timestamp),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'delete') {
+                      _showDeleteConfirmation(entry.id, index);
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => [
+                    const PopupMenuItem<String>(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete,
+                            color: Colors.red,
+                            size: 18,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Delete',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -406,10 +523,42 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
                 fontSize: 16,
                 height: 1.5,
               ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showDeleteConfirmation(String entryId, int index) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Entry?'),
+          content: const Text(
+            'Are you sure you want to delete this journal entry? This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _deleteJournalEntry(entryId, index);
+              },
+              child: const Text(
+                'Delete',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -422,13 +571,13 @@ class _VoiceChatbotPageState extends State<VoiceChatbotPage> {
         if (difference.inMinutes == 0) {
           return 'Just now';
         }
-        return '${difference.inMinutes} minutes ago';
+        return '${difference.inMinutes}m ago';
       }
-      return '${difference.inHours} hours ago';
+      return '${difference.inHours}h ago';
     } else if (difference.inDays == 1) {
       return 'Yesterday';
     } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
+      return '${difference.inDays}d ago';
     } else {
       return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
     }
