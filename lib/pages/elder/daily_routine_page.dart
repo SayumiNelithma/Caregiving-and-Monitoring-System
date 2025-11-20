@@ -14,7 +14,7 @@ class _DailyRoutinePageState extends State<DailyRoutinePage> {
   DateTime _selectedDate = DateTime.now();
 
   // Sample routine data - in a real app, this would come from a database
-  final List<Map<String, dynamic>> _routines = [
+  late List<Map<String, dynamic>> _routines = [
     {
       'time': '08:00 AM',
       'activity': 'Morning Exercise',
@@ -81,7 +81,21 @@ class _DailyRoutinePageState extends State<DailyRoutinePage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadRoutinesForDate(_selectedDate);
+  }
+
+  void _loadRoutinesForDate(DateTime date) {
+    // TODO: Load routines from database for selected date
+    setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final completedCount = _routines.where((r) => r['completed'] == true).length;
+    final progressPercentage = (_routines.isEmpty ? 0 : (completedCount / _routines.length * 100)).toStringAsFixed(0);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -124,6 +138,7 @@ class _DailyRoutinePageState extends State<DailyRoutinePage> {
                             const Duration(days: 1),
                           );
                         });
+                        _loadRoutinesForDate(_selectedDate);
                       },
                     ),
                     Column(
@@ -152,21 +167,60 @@ class _DailyRoutinePageState extends State<DailyRoutinePage> {
                             const Duration(days: 1),
                           );
                         });
+                        _loadRoutinesForDate(_selectedDate);
                       },
+                    ),
+                  ],
+                ),
+              ),
+              // Progress indicator
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Progress: $completedCount/${_routines.length} completed ($progressPercentage%)',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: _routines.isEmpty ? 0 : (completedCount / _routines.length),
+                        minHeight: 8,
+                        backgroundColor: Colors.grey[300],
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          completedCount == _routines.length ? Colors.green : const Color(0xFF2196F3),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
               // Routine list
               Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _routines.length,
-                  itemBuilder: (context, index) {
-                    final routine = _routines[index];
-                    return _buildRoutineCard(routine, index);
-                  },
-                ),
+                child: _routines.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No routines scheduled for this day',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        itemCount: _routines.length,
+                        itemBuilder: (context, index) {
+                          final routine = _routines[index];
+                          return _buildRoutineCard(routine, index);
+                        },
+                      ),
               ),
             ],
           ),
@@ -208,10 +262,10 @@ class _DailyRoutinePageState extends State<DailyRoutinePage> {
           child: Row(
             children: [
               // Time
-              Container(
+              SizedBox(
                 width: 80,
                 child: Text(
-                  routine['time'],
+                  routine['time'] as String,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -225,17 +279,12 @@ class _DailyRoutinePageState extends State<DailyRoutinePage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: (routine['icon'] as IconData == Icons.medication
-                          ? Colors.red
-                          : const Color(0xFF2196F3))
-                      .withOpacity(0.1),
+                  color: _getIconColor(routine['icon'] as IconData).withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  routine['icon'],
-                  color: routine['icon'] == Icons.medication
-                      ? Colors.red
-                      : const Color(0xFF2196F3),
+                  routine['icon'] as IconData,
+                  color: _getIconColor(routine['icon'] as IconData),
                   size: 24,
                 ),
               ),
@@ -246,7 +295,7 @@ class _DailyRoutinePageState extends State<DailyRoutinePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      routine['activity'],
+                      routine['activity'] as String,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -257,7 +306,7 @@ class _DailyRoutinePageState extends State<DailyRoutinePage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      routine['description'],
+                      routine['description'] as String,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[600],
@@ -281,6 +330,10 @@ class _DailyRoutinePageState extends State<DailyRoutinePage> {
         ),
       ),
     );
+  }
+
+  Color _getIconColor(IconData icon) {
+    return icon == Icons.medication ? Colors.red : const Color(0xFF2196F3);
   }
 
   String _formatDate(DateTime date) {
