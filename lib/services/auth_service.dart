@@ -119,6 +119,41 @@ class AuthService {
     }
   }
 
+  // UPDATE EMAIL
+  // Note: This sends a verification email to the new address
+  // The email will be updated once the user verifies it
+  Future<void> updateEmail(String newEmail) async {
+    try {
+      final user = currentUser;
+      if (user == null) {
+        throw 'No user is currently signed in.';
+      }
+      // Use verifyBeforeUpdateEmail which sends a verification email
+      await user.verifyBeforeUpdateEmail(newEmail);
+      await user.reload();
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    } catch (e) {
+      throw 'An unexpected error occurred: $e';
+    }
+  }
+
+  // UPDATE DISPLAY NAME
+  Future<void> updateDisplayName(String name) async {
+    try {
+      final user = currentUser;
+      if (user == null) {
+        throw 'No user is currently signed in.';
+      }
+      await user.updateDisplayName(name);
+      await user.reload();
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    } catch (e) {
+      throw 'An unexpected error occurred: $e';
+    }
+  }
+
   // Handle Firebase errors
   String _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {

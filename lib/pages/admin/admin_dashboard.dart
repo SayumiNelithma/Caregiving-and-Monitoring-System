@@ -3,6 +3,7 @@ import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_service.dart';
 import '../../pages/login_page.dart';
+import '../../pages/profile_page.dart';
 import 'user_management_page.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -71,6 +72,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
         backgroundColor: Colors.red,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.person),
+            tooltip: 'Profile',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfilePage(user: widget.user),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',

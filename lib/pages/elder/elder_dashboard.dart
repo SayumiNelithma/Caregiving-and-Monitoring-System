@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
+import '../../pages/profile_page.dart';
 import '../login_page.dart';
+import 'daily_routine_page.dart';
+import 'meal_plan_page.dart';
+import 'therapy_session_page.dart';
+import 'voice_chatbot_page.dart';
 
 class ElderDashboard extends StatelessWidget {
   final AppUser user;
@@ -26,6 +31,18 @@ class ElderDashboard extends StatelessWidget {
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.person),
+            tooltip: 'Profile',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfilePage(user: user),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',
@@ -103,9 +120,10 @@ class ElderDashboard extends StatelessWidget {
                         color: const Color(0xFF4CAF50),
                         description: 'Voice-based AI assistant',
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('AI Voice Chatbot feature coming soon'),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => VoiceChatbotPage(user: user),
                             ),
                           );
                         },
@@ -116,9 +134,10 @@ class ElderDashboard extends StatelessWidget {
                         color: const Color(0xFF2196F3),
                         description: 'View your daily activities',
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Daily Routine feature coming soon'),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DailyRoutinePage(user: user),
                             ),
                           );
                         },
@@ -129,9 +148,10 @@ class ElderDashboard extends StatelessWidget {
                         color: const Color(0xFF9C27B0),
                         description: 'Mental health support',
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('AI Therapist feature coming soon'),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => TherapySessionPage(user: user),
                             ),
                           );
                         },
@@ -142,9 +162,10 @@ class ElderDashboard extends StatelessWidget {
                         color: const Color(0xFFFF9800),
                         description: 'AI-powered meal planning',
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Meal Planner feature coming soon'),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MealPlanPage(user: user),
                             ),
                           );
                         },

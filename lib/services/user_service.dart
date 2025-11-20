@@ -73,5 +73,24 @@ class UserService {
       throw 'Error getting users by role: $e';
     }
   }
+
+  // Update user profile
+  Future<void> updateUser(String uid, {String? name, String? email}) async {
+    try {
+      final Map<String, dynamic> updates = {};
+      if (name != null) {
+        updates['name'] = name;
+      }
+      if (email != null) {
+        updates['email'] = email;
+      }
+      
+      if (updates.isNotEmpty) {
+        await _firestore.collection(_collection).doc(uid).update(updates);
+      }
+    } catch (e) {
+      throw 'Error updating user: $e';
+    }
+  }
 }
 
