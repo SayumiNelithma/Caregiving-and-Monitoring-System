@@ -1,15 +1,20 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum UserRole {
   admin,
   caregiver,
   elder,
-  familyMember;
+  familyMember,
+}
 
+// ENUM EXTENSION
+extension UserRoleExtension on UserRole {
   String get displayName {
     switch (this) {
       case UserRole.admin:
         return 'Admin';
       case UserRole.caregiver:
-        return 'Care Giver';
+        return 'Caregiver';
       case UserRole.elder:
         return 'Elder';
       case UserRole.familyMember:
@@ -17,6 +22,7 @@ enum UserRole {
     }
   }
 
+  // Convert enum to string for Firestore
   String get value {
     switch (this) {
       case UserRole.admin:
@@ -26,26 +32,28 @@ enum UserRole {
       case UserRole.elder:
         return 'elder';
       case UserRole.familyMember:
-        return 'familyMember';
+        return 'family_member';
     }
   }
 
-  static UserRole fromString(String value) {
-    switch (value) {
+  // Convert string from Firestore to enum
+  static UserRole fromString(String role) {
+    switch (role) {
       case 'admin':
         return UserRole.admin;
       case 'caregiver':
         return UserRole.caregiver;
       case 'elder':
         return UserRole.elder;
-      case 'familyMember':
+      case 'family_member':
         return UserRole.familyMember;
       default:
-        return UserRole.elder;
+        return UserRole.elder; // fallback to elder
     }
   }
 }
 
+// USER MODEL
 class AppUser {
   final String uid;
   final String email;
@@ -56,49 +64,32 @@ class AppUser {
   AppUser({
     required this.uid,
     required this.email,
-    this.name,
     required this.role,
     required this.createdAt,
+    this.name,
   });
 
-  // Convert to Map for Firestore
+  // Convert AppUser → Firestore Map
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
       'email': email,
       'name': name,
-      'role': role.value,
-      'createdAt': createdAt.toIso8601String(),
+      'role': role.value,                  // store enum as string
+      'createdAt': Timestamp.fromDate(createdAt),
     };
   }
 
-  // Create from Firestore document
+  // Convert Firestore Map → AppUser
   factory AppUser.fromMap(Map<String, dynamic> map) {
     return AppUser(
       uid: map['uid'] ?? '',
       email: map['email'] ?? '',
       name: map['name'],
-      role: UserRole.fromString(map['role'] ?? 'elder'),
-      createdAt: map['createdAt'] != null
-          ? DateTime.parse(map['createdAt'])
+      role: UserRoleExtension.fromString(map['role'] ?? 'elder'),
+      createdAt: (map['createdAt'] is Timestamp)
+          ? (map['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
     );
   }
-
-  // Create from Firebase User
-  factory AppUser.fromFirebaseUser(
-    String uid,
-    String email,
-    String? name,
-    UserRole role,
-  ) {
-    return AppUser(
-      uid: uid,
-      email: email,
-      name: name,
-      role: role,
-      createdAt: DateTime.now(),
-    );
-  }
 }
-
