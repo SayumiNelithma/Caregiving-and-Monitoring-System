@@ -8,7 +8,8 @@ import '../pages/login_page.dart';
 import '../pages/admin/admin_dashboard.dart';
 import '../pages/elder/elder_dashboard.dart';
 import '../pages/caregiver/caregiver_dashboard.dart';
-import '../main.dart' show HomeDashboard;
+import '../pages/therapist/therapist_dashboard.dart';
+import '../pages/home_dashboard.dart';
 import '../pages/setup_required_page.dart';
 
 class RoleBasedWrapper extends StatefulWidget {
@@ -21,69 +22,74 @@ class RoleBasedWrapper extends StatefulWidget {
 class _RoleBasedWrapperState extends State<RoleBasedWrapper> {
   final AuthService _authService = AuthService();
   final UserService _userService = UserService();
+  
+  // Cache the future to prevent loops
+  late Future<AppUser?> _userFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _userFuture = _loadUserWithRetries(user.uid);
+    } else {
+      _userFuture = Future.value(null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: _authService.authStateChanges,
-      builder: (context, authSnapshot) {
-        // Still restoring auth state
-        if (authSnapshot.connectionState == ConnectionState.waiting) {
+    // Check current auth state directly instead of stream, 
+    // because AuthWrapper/Login handles the stream usually.
+    // However, for safety, if user is null, show Login.
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) {
+      return const LoginPage();
+    }
+
+    return FutureBuilder<AppUser?>(
+      future: _userFuture,
+      builder: (context, userSnapshot) {
+        if (userSnapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // Not logged in → go to login
-        final firebaseUser = authSnapshot.data;
-        if (firebaseUser == null) {
-          return const LoginPage();
+        final appUser = userSnapshot.data;
+
+        // After several retries the profile is still missing
+        if (appUser == null) {
+          return SetupRequiredPage(
+            title: 'User Profile Not Found',
+            message:
+                'Your Firebase Auth account exists, but no profile document was found in the "users" collection for this user.\n\n'
+                'This normally should not happen. Please log out and sign in again. If the problem persists, contact support.',
+            onSetupPressed: () async {
+              // Default action: sign out and go back to login
+              await _authService.signOut();
+              if (!mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginPage()),
+                (route) => false,
+              );
+            },
+          );
         }
 
-        // Logged in → load profile from Firestore
-        return FutureBuilder<AppUser?>(
-          future: _loadUserWithRetries(firebaseUser.uid),
-          builder: (context, userSnapshot) {
-            if (userSnapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            }
-
-            final appUser = userSnapshot.data;
-
-            // After several retries the profile is still missing
-            if (appUser == null) {
-              return SetupRequiredPage(
-                title: 'User Profile Not Found',
-                message:
-                    'Your Firebase Auth account exists, but no profile document was found in the "users" collection for this user.\n\n'
-                    'This normally should not happen. Please log out and sign in again. If the problem persists, contact support.',
-                onSetupPressed: () async {
-                  // Default action: sign out and go back to login
-                  await _authService.signOut();
-                  if (!mounted) return;
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginPage()),
-                    (route) => false,
-                  );
-                },
-              );
-            }
-
-            // We have a valid AppUser → route by role
-            switch (appUser.role) {
-              case UserRole.admin:
-                return AdminDashboard(user: appUser);
-              case UserRole.elder:
-                return ElderDashboard(user: appUser);
-              case UserRole.caregiver:
-                return CaregiverDashboard(user: appUser);
-              case UserRole.familyMember:
-                return HomeDashboard(user: appUser);
-            }
-          },
-        );
+        // We have a valid AppUser → route by role
+        switch (appUser.role) {
+          case UserRole.admin:
+            return AdminDashboard(user: appUser);
+          case UserRole.elder:
+            return ElderDashboard(user: appUser);
+          case UserRole.caregiver:
+            return CaregiverDashboard(user: appUser);
+          case UserRole.therapist:
+            return TherapistDashboard(user: appUser);
+          case UserRole.familyMember:
+            return HomeDashboard(user: appUser);
+        }
       },
     );
   }
@@ -101,7 +107,10 @@ class _RoleBasedWrapperState extends State<RoleBasedWrapper> {
       } catch (_) {
         // ignore and retry
       }
-      await Future.delayed(const Duration(milliseconds: 200));
+      // Wait a bit before retry
+      if (attempts < 9) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
       attempts++;
     }
 

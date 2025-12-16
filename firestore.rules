@@ -78,6 +78,45 @@ service cloud.firestore {
       allow update: if isAuthenticated() && isOwner(resource.data.userId);
       allow delete: if isAuthenticated() && isOwner(resource.data.userId);
     }
+
+    // Common routine templates - available to all authenticated users
+    match /common_routine_templates/{taskId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+      allow list: if isAuthenticated();
+    }
+
+    // Therapist assignments - caregivers can manage, elders can view their own
+    match /therapist_assignments/{activityId} {
+      allow read: if isAuthenticated() && (
+        resource.data.elder_id == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['caregiver', 'admin']
+      );
+      allow create: if isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['caregiver', 'admin'];
+      allow update: if isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['caregiver', 'admin'];
+      allow delete: if isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['caregiver', 'admin'];
+      allow list: if isAuthenticated();
+    }
+
+    // Medication prescriptions - caregivers can manage, elders can view their own
+    match /medication_prescriptions/{prescriptionId} {
+      allow read: if isAuthenticated() && (
+        resource.data.elder_id == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['caregiver', 'admin']
+      );
+      allow create: if isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['caregiver', 'admin'];
+      allow update: if isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['caregiver', 'admin'];
+      allow delete: if isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['caregiver', 'admin'];
+      allow list: if isAuthenticated();
+    }
   }
 }
 

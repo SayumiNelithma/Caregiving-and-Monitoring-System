@@ -4,6 +4,7 @@ import '../../services/auth_service.dart';
 import '../../services/user_service.dart';
 import '../../pages/profile_page.dart';
 import '../login_page.dart';
+import 'manage_elders_page.dart';
 
 class CaregiverDashboard extends StatefulWidget {
   final AppUser user;
@@ -49,8 +50,6 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final authService = AuthService();
-    
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -225,9 +224,11 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
                         color: const Color(0xFF4CAF50),
                         description: 'View and manage elders',
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Manage Elders feature coming soon'),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  ManageEldersPage(caregiver: widget.user),
                             ),
                           );
                         },
@@ -246,14 +247,17 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
                         },
                       ),
                       _buildFeatureCard(
-                        title: 'Health Monitoring',
-                        icon: Icons.health_and_safety,
-                        color: const Color(0xFFE91E63),
-                        description: 'Monitor elder health',
+                        title: 'Medications',
+                        icon: Icons.medical_information,
+                        color: const Color(0xFF9C27B0),
+                        description: 'Manage elder medications',
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Health Monitoring feature coming soon'),
+                          // Navigate to manage elders page first to select an elder
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  ManageEldersPage(caregiver: widget.user),
                             ),
                           );
                         },

@@ -1,6 +1,6 @@
 {
-    "name": "voice_emotion_app",
-    "short_name": "voice_emotion_app",
+    "name": "Caregiving and Monitoring System",
+    "short_name": "Caregiving System",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

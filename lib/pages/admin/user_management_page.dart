@@ -91,6 +91,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
         return Colors.green;
       case UserRole.familyMember:
         return Colors.orange;
+      case UserRole.therapist:
+        return Colors.teal;
     }
   }
 
@@ -214,6 +216,10 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                           const PopupMenuItem(
                                             value: UserRole.familyMember,
                                             child: Text('Family Member'),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: UserRole.therapist,
+                                            child: Text('Therapist'),
                                           ),
                                         ],
                                       ),

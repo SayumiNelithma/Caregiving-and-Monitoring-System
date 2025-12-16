@@ -2,7 +2,8 @@ enum UserRole {
   admin,
   caregiver,
   elder,
-  familyMember;
+  familyMember,
+  therapist;
 
   String get displayName {
     switch (this) {
@@ -14,6 +15,8 @@ enum UserRole {
         return 'Elder';
       case UserRole.familyMember:
         return 'Family Member';
+      case UserRole.therapist:
+        return 'Therapist';
     }
   }
 
@@ -27,6 +30,8 @@ enum UserRole {
         return 'elder';
       case UserRole.familyMember:
         return 'familyMember';
+      case UserRole.therapist:
+        return 'therapist';
     }
   }
 
@@ -38,6 +43,8 @@ enum UserRole {
         return UserRole.caregiver;
       case 'elder':
         return UserRole.elder;
+      case 'therapist':
+        return UserRole.therapist;
       case 'familyMember':
         return UserRole.familyMember;
       default:

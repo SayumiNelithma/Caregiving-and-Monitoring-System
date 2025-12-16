@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart'; // REQUIRED for kIsWeb
+import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 
@@ -5,92 +8,98 @@ class UserService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _collection = 'users';
 
-  // Save user to Firestore
-  Future<void> saveUser(AppUser user) async {
-    try {
-      await _firestore.collection(_collection).doc(user.uid).set(user.toMap());
-    } catch (e) {
-      throw 'Error saving user: $e';
+  // --- SMART URL SELECTION ---
+  String get baseUrl {
+    if (kIsWeb) {
+      return "http://127.0.0.1:5000"; // Chrome
+    } else if (defaultTargetPlatform == TargetPlatform.android) {
+      return "http://10.0.2.2:5000";  // Android Emulator
+    } else {
+      return "http://192.168.8.115:5000"; // Real Phone / iOS
     }
   }
 
-  // Get user by UID
-  Future<AppUser?> getUser(String uid) async {
+  // --- PYTHON BACKEND METHODS (Writes/AI) ---
+  
+  Future<bool> checkProfileExists(String uid) async {
     try {
-      final doc = await _firestore.collection(_collection).doc(uid).get();
+      final response = await http.get(Uri.parse('$baseUrl/check_profile/$uid'));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body)['exists'];
+      }
+      return false;
+    } catch (e) {
+      print("Backend Connection Error ($baseUrl): $e");
+      return false; 
+    }
+  }
+
+  Future<bool> createElderProfile(Map<String, dynamic> profileData) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/create_profile'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(profileData),
+      );
+      return response.statusCode == 201;
+    } catch (e) {
+      print("Error creating profile: $e");
+      return false;
+    }
+  }
+
+  // --- FIRESTORE METHODS (Reads) ---
+
+  // NEW: Fetch the detailed onboarding data
+  Future<Map<String, dynamic>?> getElderProfile(String uid) async {
+    try {
+      final doc = await _firestore.collection('elder_profiles').doc(uid).get();
       if (doc.exists) {
-        return AppUser.fromMap(doc.data()!);
+        return doc.data();
       }
       return null;
     } catch (e) {
-      throw 'Error getting user: $e';
+      print("Error fetching elder profile: $e");
+      return null;
     }
   }
 
-  // Update user role (Admin only)
-  Future<void> updateUserRole(String uid, UserRole newRole) async {
-    try {
-      await _firestore.collection(_collection).doc(uid).update({
-        'role': newRole.value,
-      });
-    } catch (e) {
-      throw 'Error updating user role: $e';
-    }
-  }
+  // Alias needed by DailyRoutinePage
+  Future<Map<String, dynamic>?> getUserProfileAsMap(String uid) => getElderProfile(uid);
 
-  // Stream user data
-  Stream<AppUser?> getUserStream(String uid) {
-    return _firestore
-        .collection(_collection)
-        .doc(uid)
-        .snapshots()
-        .map((doc) => doc.exists ? AppUser.fromMap(doc.data()!) : null);
-  }
-
-  // Get all users (Admin only)
-  Future<List<AppUser>> getAllUsers() async {
-    try {
-      final snapshot = await _firestore.collection(_collection).get();
-      return snapshot.docs
-          .map((doc) => AppUser.fromMap(doc.data()))
-          .toList();
-    } catch (e) {
-      throw 'Error getting users: $e';
-    }
-  }
-
-  // Get users by role
-  Future<List<AppUser>> getUsersByRole(UserRole role) async {
-    try {
-      final snapshot = await _firestore
-          .collection(_collection)
-          .where('role', isEqualTo: role.value)
-          .get();
-      return snapshot.docs
-          .map((doc) => AppUser.fromMap(doc.data()))
-          .toList();
-    } catch (e) {
-      throw 'Error getting users by role: $e';
-    }
-  }
-
-  // Update user profile
   Future<void> updateUser(String uid, {String? name, String? email}) async {
-    try {
-      final Map<String, dynamic> updates = {};
-      if (name != null) {
-        updates['name'] = name;
-      }
-      if (email != null) {
-        updates['email'] = email;
-      }
-      
-      if (updates.isNotEmpty) {
-        await _firestore.collection(_collection).doc(uid).update(updates);
-      }
-    } catch (e) {
-      throw 'Error updating user: $e';
+    final Map<String, dynamic> updates = {};
+    if (name != null) updates['name'] = name;
+    if (email != null) updates['email'] = email;
+    if (updates.isNotEmpty) {
+      await _firestore.collection(_collection).doc(uid).update(updates);
     }
+  }
+
+  Future<void> saveUser(AppUser user) async {
+    await _firestore.collection(_collection).doc(user.uid).set(user.toMap());
+  }
+
+  Future<AppUser?> getUser(String uid) async {
+    final doc = await _firestore.collection(_collection).doc(uid).get();
+    if (doc.exists) return AppUser.fromMap(doc.data()!);
+    return null;
+  }
+
+  Future<void> updateUserRole(String uid, UserRole newRole) async {
+     // Convert enum to string (e.g., UserRole.admin -> 'admin')
+    String roleStr = newRole.toString().split('.').last;
+    await _firestore.collection(_collection).doc(uid).update({'role': roleStr});
+  }
+
+  Future<List<AppUser>> getAllUsers() async {
+    final snapshot = await _firestore.collection(_collection).get();
+    return snapshot.docs.map((doc) => AppUser.fromMap(doc.data())).toList();
+  }
+
+  Future<List<AppUser>> getUsersByRole(UserRole role) async {
+    String roleStr = role.toString().split('.').last;
+    final snapshot = await _firestore.collection(_collection).where('role', isEqualTo: roleStr).get();
+    return snapshot.docs.map((doc) => AppUser.fromMap(doc.data())).toList();
   }
 }
-

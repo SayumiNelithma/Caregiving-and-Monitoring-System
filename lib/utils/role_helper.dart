@@ -56,6 +56,9 @@ class RoleHelper {
         return 0xFF4CAF50; // Green
       case UserRole.familyMember:
         return 0xFFFF9800; // Orange
+      case UserRole.therapist:
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
   }
 }
